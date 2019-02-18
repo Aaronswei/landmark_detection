@@ -7,12 +7,13 @@ Parag K. Mital
 Copyright Parag K. Mital, June 2016.
 """
 import matplotlib.pyplot as plt
+
 import tensorflow as tf
+from tensorflow.python import control_flow_ops
 import urllib
 import numpy as np
 import zipfile
 import os
-from scipy.io import wavfile
 
 
 def download(path):
@@ -81,27 +82,6 @@ def download_and_extract_zip(path, dst):
         os.makedirs(dst)
         zf = zipfile.ZipFile(file=filepath)
         zf.extractall(dst)
-
-
-def load_audio(filename, b_normalize=True):
-    """Load the audiofile at the provided filename using scipy.io.wavfile.
-
-    Optionally normalizes the audio to the maximum value.
-
-    Parameters
-    ----------
-    filename : str
-        File to load.
-    b_normalize : bool, optional
-        Normalize to the maximum value.
-    """
-    sr, s = wavfile.read(filename)
-    if b_normalize:
-        s = s.astype(np.float32)
-        s = (s / np.max(np.abs(s)))
-        s -= np.mean(s)
-    return s
-
 
 def corrupt(x):
     """Take an input tensor and add uniform masking.
@@ -801,3 +781,59 @@ def genLandmarkMap(landmarks, shape=[39, 39]):
         landmarkMap[y, x, i] = 1
     return landmarkMap
 
+
+def batch_norm(x, phase_train, name='bn', decay=0.9, reuse=None,
+               affine=True):
+    """
+    Batch normalization on convolutional maps.
+    from: https://stackoverflow.com/questions/33949786/how-could-i-
+    use-batch-normalization-in-tensorflow
+    Only modified to infer shape from input tensor x.
+    Parameters
+    ----------
+    x
+        Tensor, 4D BHWD input maps
+    phase_train
+        boolean tf.Variable, true indicates training phase
+    name
+        string, variable name
+    affine
+        whether to affine-transform outputs
+    Return
+    ------
+    normed
+        batch-normalized maps
+    """
+    with tf.variable_scope(name, reuse=reuse):
+        shape = x.get_shape().as_list()
+        beta = tf.get_variable(name='beta', shape=[shape[-1]],
+                               initializer=tf.constant_initializer(0.0),
+                               trainable=True)
+        gamma = tf.get_variable(name='gamma', shape=[shape[-1]],
+                                initializer=tf.constant_initializer(1.0),
+                                trainable=affine)
+        if len(shape) == 4:
+            batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
+        else:
+            batch_mean, batch_var = tf.nn.moments(x, [0], name='moments')
+        ema = tf.train.ExponentialMovingAverage(decay=decay)
+        ema_apply_op = ema.apply([batch_mean, batch_var])
+        ema_mean, ema_var = ema.average(batch_mean), ema.average(batch_var)
+
+        def mean_var_with_update():
+            """Summary
+            Returns
+            -------
+            name : TYPE
+                Description
+            """
+            with tf.control_dependencies([ema_apply_op]):
+                return tf.identity(batch_mean), tf.identity(batch_var)
+        mean, var = control_flow_ops.cond(phase_train,
+                                          mean_var_with_update,
+                                          lambda: (ema_mean, ema_var))
+
+        # tf.nn.batch_normalization
+        normed = tf.nn.batch_norm_with_global_normalization(
+            x, mean, var, beta, gamma, 1e-6, affine)
+    return normed
