@@ -17,9 +17,8 @@ import cv2
 def per_image_standardization(image):
   mean_image = image - np.mean(image)
   std_image = np.std(image)
-  adjusted_stddev = max(std_image, 1.0 / np.sqrt(image.shape[0] * image.shape[1] * image.shape[2]))
 
-  return mean_image / adjusted_stddev
+  return mean_image / std_image
 
 
 
@@ -57,7 +56,7 @@ class Predict():
 
   def detect_image(self, imgName, label, shape=[224, 224, 3], is_training=False):
     image = cv2.imread(imgName)
-    print(image.shape)
+  #  print(image.shape)
     resize_image = cv2.resize(image, (shape[0], shape[1]))
 
     std_image = per_image_standardization(resize_image)
@@ -66,32 +65,32 @@ class Predict():
 
 
     points = self.sess.run([self.deepid['pred']], feed_dict={self.deepid['x']: new_image, self.deepid['train']: False, self.deepid['keep_prob']: 0.5})[0][0]
-    print(points)
-
-    (bbx_left, bbx_right) = points[0]
-    (bbx_top, bbx_bottom) = points[1]
+  #  print(points)
 
     self.count += 1
     if 1:
       for (x, y) in points[2:]:
-    #    y = int(y - bbx_right / 2)
-    #    x = int(x + bbx_left / 2)
-        #cv2.circle(resize_image, (x, y), 2, (0, 255, 255), -1)
         cv2.circle(image, (x, y), 2, (0, 255, 255), -1)
 
-      for (xl, yl) in label[0][2:]:
-        cv2.circle(image, (xl, yl), 2, (255, 0, 255), -1)
+      for (xl, yl) in label[2:]:
+        print(xl, yl)
+        cv2.circle(image, (int(float(xl)), int(float(yl))), 2, (255, 255, 255), -1)
 
-      #cv2.imwrite("test.jpg", resize_image)
       cv2.imwrite("test_%d.jpg"%(self.count), image)
-     
+
+    #  for (x, y), (xl, yl) in zip(points[2:], label[2:]):
+    #    print(x - float(xl), y - float(yl))     
 
 if __name__ == '__main__':
     predict = Predict()
     txt_list = open('test_list.txt', 'r').readlines()
-    for txt_line in txt_list:
+    for txt_lines in txt_list:
+      txt_line = txt_lines.split('\n')[0]
+      
       imageFile = txt_line.split(' ')[0]
-      label = np.array(txt_list[0].split(' ')[1:])
       print(imageFile)
-    #  predict.detect_image(imageFile, label)
+      label = np.array(txt_line.split(' ')[1:])
+
+      flap_label = label.reshape(-1, 70, 2)
+      predict.detect_image(imageFile, flap_label[0])
 
