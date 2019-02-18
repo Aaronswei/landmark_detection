@@ -13,6 +13,7 @@ import time
 from model_train import deepID
 import cv2
 
+
 def per_image_standardization(image):
   mean_image = image - np.mean(image)
   std_image = np.std(image)
@@ -22,10 +23,10 @@ def per_image_standardization(image):
 
 
 
-
 class Predict():
   def __init__(self):
     self.init_model()
+    self.count = 0
 
   def init_model(self):
     """Evaluate model on Dataset for a number of steps."""
@@ -54,14 +55,12 @@ class Predict():
         print('No checkpoint file found')
 
 
-  def detect_image(self, imgName, shape=[224, 224, 3], is_training=False):
+  def detect_image(self, imgName, label, shape=[224, 224, 3], is_training=False):
     image = cv2.imread(imgName)
     print(image.shape)
     resize_image = cv2.resize(image, (shape[0], shape[1]))
 
     std_image = per_image_standardization(resize_image)
-    h, w = resize_image.shape[:2]
-    #new_image = resize_image.copy()
     new_image = std_image.copy()
     new_image = np.array([new_image])
 
@@ -72,23 +71,27 @@ class Predict():
     (bbx_left, bbx_right) = points[0]
     (bbx_top, bbx_bottom) = points[1]
 
+    self.count += 1
+    if 1:
+      for (x, y) in points[2:]:
+    #    y = int(y - bbx_right / 2)
+    #    x = int(x + bbx_left / 2)
+        #cv2.circle(resize_image, (x, y), 2, (0, 255, 255), -1)
+        cv2.circle(image, (x, y), 2, (0, 255, 255), -1)
 
+      for (xl, yl) in label[0][2:]:
+        cv2.circle(image, (xl, yl), 2, (255, 0, 255), -1)
 
-
-    if 0:
-      for (x, y) in points:
-        y = int(y * h)
-        x = int(x * w)
-        cv2.circle(resize_image, (x, y), 1, (0, 255, 255), -1)
-
-      cv2.imwrite("test.jpg", resize_image)
+      #cv2.imwrite("test.jpg", resize_image)
+      cv2.imwrite("test_%d.jpg"%(self.count), image)
      
 
 if __name__ == '__main__':
     predict = Predict()
     txt_list = open('test_list.txt', 'r').readlines()
-    imageFile = txt_list[0].split(' ')[0]
-    label = np.array(txt_list[0].split(' ')[1:])
-    print(imageFile)
-    predict.detect_image(imageFile)
+    for txt_line in txt_list:
+      imageFile = txt_line.split(' ')[0]
+      label = np.array(txt_list[0].split(' ')[1:])
+      print(imageFile)
+    #  predict.detect_image(imageFile, label)
 
