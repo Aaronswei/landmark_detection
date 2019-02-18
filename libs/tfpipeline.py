@@ -39,8 +39,8 @@ def input_pipeline(TXTs, batch_size, shape, is_training=False):
     image = tf.image.resize_images(img, [shape[0], shape[1]])
     img_reshape = tf.cast(image, tf.float32)
     float_image = tf.image.per_image_standardization(img_reshape)
-    if is_training:
-        float_image = distort_color(float_image)
+ #   if is_training:
+ #       float_image = distort_color(float_image)
 
     min_after_dequeue = 80000 // 100
 

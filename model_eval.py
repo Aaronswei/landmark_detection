@@ -87,7 +87,7 @@ def _eval_once(saver, rmse_op, network):
       start_time = time.time()
       while step < num_iter and not coord.should_stop():
         test_xs, label = sess.run([test_x, test_label])
-        rmse = sess.run(rmse_op, feed_dict={network['x']: test_xs, network['y']: label, network['train']: False,
+        rmse, pred = sess.run([rmse_op, network['pred']],feed_dict={network['x']: test_xs, network['y']: label, network['train']: False,
                 network['keep_prob']: 0.5})
         errors.append(rmse)
         step += 1
@@ -100,6 +100,7 @@ def _eval_once(saver, rmse_op, network):
                                 examples_per_sec, sec_per_batch))
           start_time = time.time()
 
+      print('pred:  ' + np.array_str(pred[0]))
       errors = np.vstack(errors).ravel()
       mean_rmse = errors.mean()
       auc_at_08 = (errors < .08).mean()

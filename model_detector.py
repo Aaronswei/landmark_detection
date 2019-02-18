@@ -13,6 +13,16 @@ import time
 from model_train import deepID
 import cv2
 
+def per_image_standardization(image):
+  mean_image = image - np.mean(image)
+  std_image = np.std(image)
+  adjusted_stddev = max(std_image, 1.0 / np.sqrt(image.shape[0] * image.shape[1] * image.shape[2]))
+
+  return mean_image / adjusted_stddev
+
+
+
+
 class Predict():
   def __init__(self):
     self.init_model()
@@ -48,13 +58,23 @@ class Predict():
     image = cv2.imread(imgName)
     print(image.shape)
     resize_image = cv2.resize(image, (shape[0], shape[1]))
+
+    std_image = per_image_standardization(resize_image)
     h, w = resize_image.shape[:2]
-    new_image = resize_image.copy()
+    #new_image = resize_image.copy()
+    new_image = std_image.copy()
     new_image = np.array([new_image])
 
 
-    points = self.sess.run([self.deepid['pred']], feed_dict={self.deepid['x']: new_image, self.deepid['train']: False, self.deepid['keep_prob']: 0.5})
+    points = self.sess.run([self.deepid['pred']], feed_dict={self.deepid['x']: new_image, self.deepid['train']: False, self.deepid['keep_prob']: 0.5})[0][0]
     print(points)
+
+    (bbx_left, bbx_right) = points[0]
+    (bbx_top, bbx_bottom) = points[1]
+
+
+
+
     if 0:
       for (x, y) in points:
         y = int(y * h)
@@ -69,4 +89,6 @@ if __name__ == '__main__':
     txt_list = open('test_list.txt', 'r').readlines()
     imageFile = txt_list[0].split(' ')[0]
     label = np.array(txt_list[0].split(' ')[1:])
+    print(imageFile)
     predict.detect_image(imageFile)
+
